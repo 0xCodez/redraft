@@ -4,9 +4,11 @@ A Chrome extension that redesigns any website live. Click once and the page turn
 
 Nothing is faked: every box a cursor draws is a real edit landing on the real page.
 
+**[Website](https://getredraft.vercel.app)** · **[Download](https://github.com/0xCodez/redraft/releases/latest)**
+
 ## Install
 
-Download **Redraft.zip** from the website, or build it yourself:
+Download **Redraft.zip** from the [website](https://getredraft.vercel.app) or the [latest release](https://github.com/0xCodez/redraft/releases/latest), or build it yourself:
 
 ```bash
 npm install

@@ -257,6 +257,7 @@ details p { color: var(--soft); margin-top: 8px; max-width: 680px; font-size: 16
 .final-mark path { fill: var(--panel-fg); }
 .foot { display: flex; align-items: center; gap: 12px; padding: 24px var(--gutter-r) 84px var(--gutter-l); font-size: 14.5px; color: var(--soft); }
 .foot img { width: 30px; height: 30px; display: block; }
+.foot-link { margin-left: auto; }
 
 @media (max-width: 980px) {
   .chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
