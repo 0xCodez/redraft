@@ -23,8 +23,7 @@ function reply(body) {
     return [
       { op: 'brief', name: 'Test paper', summary: 'Dark ground, warm accent.' },
       { op: 'font', family: 'Fraunces' },
-      { op: 'rule', selector: ':root', css: { '--nx-bg': '#14110f' } },
-      { op: 'rule', selector: 'body', css: { background: '#14110f', color: '#f5efe6' } },
+      { op: 'theme', bg: '#14110f', surface: '#221d19', text: '#f5efe6', muted: '#b8ad9e', accent: '#e08a3c', accentText: '#14110f', border: '#3a322b', headingFont: 'Fraunces', bodyFont: 'Inter', radius: '6px', shadow: 'none' },
       { op: 'rule', selector: 'a', css: { background: 'url(http://evil.test/x)' } },
     ];
   }
@@ -72,7 +71,7 @@ const browser = await puppeteer.launch({
 
 const found = await browser.waitForTarget(t => t.type() === 'service_worker', { timeout: 15000 });
 const worker = await found.worker();
-await worker.evaluate(url => chrome.storage.local.set({ apiKey: 'sk-ant-test', apiBaseUrl: url, concurrency: 3 }), base);
+await worker.evaluate(url => chrome.storage.local.set({ connection: 'api', apiKey: 'sk-ant-test', apiBaseUrl: url, concurrency: 3 }), base);
 
 const page = await browser.newPage();
 const errors = [];
@@ -84,17 +83,17 @@ const launch = settings => worker.evaluate(async (s, url) => {
   await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
   await chrome.tabs.sendMessage(tab.id, { type: 'run', settings: s });
 }, settings, base);
-const hud = id => page.evaluate(i => document.getElementById('codez-swarm').shadowRoot.getElementById(i).textContent, id);
-const hudHidden = id => page.evaluate(i => document.getElementById('codez-swarm').shadowRoot.getElementById(i).hidden, id);
+const hud = id => page.evaluate(i => document.getElementById('redraft').shadowRoot.getElementById(i).textContent, id);
+const hudHidden = id => page.evaluate(i => document.getElementById('redraft').shadowRoot.getElementById(i).hidden, id);
 const finished = () => page.waitForFunction(() => {
-  const r = document.getElementById('codez-swarm')?.shadowRoot;
+  const r = document.getElementById('redraft')?.shadowRoot;
   return r && !r.getElementById('undo').hidden;
 }, { timeout: 90000 });
 
 await launch({ style: 'dark bakery', preset: 'editorial', allowText: false, agents: 200 });
 await new Promise(r => setTimeout(r, 900));
 await page.screenshot({ path: `${shots}/1-blueprint.png` });
-await page.waitForFunction(() => +document.getElementById('codez-swarm').shadowRoot.getElementById('ops').textContent > 14, { timeout: 30000 });
+await page.waitForFunction(() => +document.getElementById('redraft').shadowRoot.getElementById('ops').textContent > 14, { timeout: 30000 });
 await page.screenshot({ path: `${shots}/2-building.png` });
 await finished();
 await new Promise(r => setTimeout(r, 1000));
@@ -124,7 +123,7 @@ assert.equal(look.link, 'none', 'url() rule was rejected');
 assert.match(await hud('status'), /Done in/);
 
 // Undo puts everything back.
-await page.evaluate(() => document.getElementById('codez-swarm').shadowRoot.getElementById('undo').click());
+await page.evaluate(() => document.getElementById('redraft').shadowRoot.getElementById('undo').click());
 await page.waitForFunction(() => getComputedStyle(document.body).backgroundColor === 'rgb(255, 255, 255)', { timeout: 5000 });
 assert.equal(await page.evaluate(() => document.querySelector('h1').getAttribute('style')), null);
 

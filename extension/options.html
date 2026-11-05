@@ -2,40 +2,126 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Codez Swarm options</title>
+<title>Redraft settings</title>
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { max-width: 460px; margin: 0 auto; padding: 28px 16px; display: grid; gap: 14px; }
+  body { min-height: 100vh; padding: 56px 16px; }
+  main { max-width: 520px; margin: 0 auto; display: grid; gap: 22px; }
+  header { display: flex; align-items: center; gap: 13px; }
+  header img { width: 44px; height: 44px; display: block; }
+  header h1 { font-size: 22px; letter-spacing: -.02em; }
+  header p { margin: 1px 0 0; color: var(--soft); }
+  .panel { display: grid; gap: 15px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--sheet); }
+  .panel[hidden] { display: none; }
+  .panel h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 11px; background: var(--ink); border: 1px solid var(--line); }
+  .seg button { padding: 9px 10px; border: 0; border-radius: 8px; background: none; color: var(--soft); font-weight: 550; }
+  .seg button[aria-pressed="true"] { background: var(--blue); color: #fff; }
+  .cmd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--ink); }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 460px) { .two { grid-template-columns: 1fr; } }
+  #saved { min-height: 18px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  #style-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  #style-list li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--ink); }
+  #style-list .chip { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 8px; font-weight: 700; box-shadow: 0 0 0 1px var(--line); }
+  #style-list .info { flex: 1; min-width: 0; }
+  #style-list .info b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #style-list .info small { color: var(--dim); }
+  .colors { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
+  .colors label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--ink); font-size: 12px; color: var(--soft); }
+  .colors input { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; cursor: pointer; }
 </style>
 </head>
 <body>
-  <h1>Codez Swarm options</h1>
-  <label>Anthropic API key
-    <input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
-  </label>
-  <p class="note">Stored only in this browser profile and used only for requests to api.anthropic.com. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Usage is billed to your account.</p>
-  <label>Model
-    <select id="model">
-      <option value="claude-opus-5-5">Claude Opus 5.5 (best results)</option>
-      <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
-      <option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest, cheapest)</option>
+  <main>
+    <header>
+      <img src="icons/icon128.png" alt="">
+      <div><h1>Redraft settings</h1><p>Choose how Redraft reaches Claude.</p></div>
+    </header>
+
+    <div class="seg" role="group" aria-label="Connection">
+      <button type="button" data-connection="claude-code">Claude Code</button>
+      <button type="button" data-connection="api">API key</button>
+    </div>
+    <select id="connection" hidden aria-hidden="true" tabindex="-1">
+      <option value="claude-code">Claude Code</option>
+      <option value="api">API key</option>
     </select>
-  </label>
-  <label>Section agent effort
-    <select id="effort">
-      <option value="low">Low</option>
-      <option value="medium">Medium</option>
-      <option value="high">High</option>
-    </select>
-  </label>
-  <label>Claude agents working at once
-    <input id="concurrency" type="number" min="1" max="8">
-  </label>
-  <label>Cursors on screen
-    <input id="agents" type="number" min="20" max="400">
-  </label>
-  <button id="save" class="main" type="button">Save</button>
-  <p class="note" id="saved" role="status"></p>
+
+    <section class="panel" id="bridge">
+      <h2>Use Claude Code on this computer</h2>
+      <p class="note">No API key. Redraft uses your Claude Code login and plan. Run this once in the project folder:</p>
+      <div class="cmd"><code>npm run connect</code></div>
+      <div class="row">
+        <button id="check" class="quiet" type="button">Check connection</button>
+        <span class="status" id="checked" role="status" data-state="">Not checked yet</span>
+      </div>
+    </section>
+
+    <section class="panel" id="api">
+      <h2>Use an Anthropic API key</h2>
+      <label><span class="field-label">API key</span><input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…"></label>
+      <p class="note">Stays in this browser profile and is sent only to api.anthropic.com. Usage is billed to your account. <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get a key</a></p>
+      <label><span class="field-label">Model</span>
+        <select id="model">
+          <option value="claude-opus-5-5">Claude Opus 5.5 (best results)</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
+          <option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest, cheapest)</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="panel" id="library">
+      <div class="head"><h2>Your styles</h2><div class="row">
+        <button id="new-style" class="quiet" type="button">New</button>
+        <button id="import" class="quiet" type="button">Import</button>
+        <button id="export" class="quiet" type="button">Export</button>
+      </div></div>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
+      <ul id="style-list"></ul>
+      <p class="note" id="library-msg" role="status"></p>
+    </section>
+
+    <section class="panel" id="editor" hidden>
+      <h2 id="editor-title">New style</h2>
+      <label><span class="field-label">Name</span><input id="e-name" type="text" maxlength="40" placeholder="My brand"></label>
+      <div class="colors" id="e-colors"></div>
+      <div class="two">
+        <label><span class="field-label">Heading font</span><input id="e-headingFont" type="text" placeholder="Fraunces"></label>
+        <label><span class="field-label">Body font</span><input id="e-bodyFont" type="text" placeholder="Inter"></label>
+        <label><span class="field-label">Corner radius</span><input id="e-radius" type="text" placeholder="8px"></label>
+        <label><span class="field-label">Heading weight</span><input id="e-headingWeight" type="number" min="100" max="900" step="100"></label>
+      </div>
+      <label><span class="field-label">Shadow</span><input id="e-shadow" type="text" placeholder="none"></label>
+      <label><span class="field-label">Notes for the agents</span><textarea id="e-prompt" rows="2" placeholder="Lots of air, big headlines"></textarea></label>
+      <div class="row">
+        <button id="e-save" class="primary" type="button" style="width:auto;padding:0 20px">Save style</button>
+        <button id="e-cancel" class="quiet" type="button">Cancel</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Swarm</h2>
+      <label><span class="field-label">Agent effort</span>
+        <select id="effort">
+          <option value="low">Low: fastest</option>
+          <option value="medium">Medium</option>
+          <option value="high">High: most careful</option>
+        </select>
+      </label>
+      <div class="two">
+        <label><span class="field-label">Claude agents at once</span><input id="concurrency" type="number" min="1" max="8"></label>
+        <label><span class="field-label">Cursors on screen</span><input id="agents" type="number" min="20" max="400"></label>
+      </div>
+    </section>
+
+    <div class="row">
+      <button id="save" class="primary" type="button" style="width:auto;padding:0 22px">Save</button>
+      <span class="note" id="saved" role="status"></span>
+    </div>
+  </main>
   <script type="module" src="options.js"></script>
 </body>
 </html>

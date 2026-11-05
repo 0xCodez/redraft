@@ -4,7 +4,7 @@ import { scrub } from './protocol.js';
 
 const SKIP = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'LINK', 'META', 'HEAD', 'BR', 'WBR']);
 const OPAQUE = new Set(['SVG', 'CANVAS', 'VIDEO', 'IFRAME', 'OBJECT', 'EMBED', 'IMG', 'PICTURE', 'INPUT', 'TEXTAREA', 'SELECT']);
-const MAX_SECTIONS = 12, MAX_NODES = 320, MAX_TEXT = 90;
+const MAX_SECTIONS = 12, MAX_NODES = 220, MAX_TEXT = 90;
 
 const visible = el => {
   const r = el.getBoundingClientRect();
@@ -33,29 +33,36 @@ const ownText = el => {
   return s.length > MAX_TEXT ? `${s.slice(0, MAX_TEXT)}…` : s;
 };
 
-// Descend through wrapper elements until the page splits into real blocks.
+// Descend through wrappers until the page splits into real blocks, then keep splitting
+// anything taller than a couple of screens so a long page gets enough agents.
 function findSections(root) {
-  let level = root;
+  let level = [root];
   for (let depth = 0; depth < 7; depth++) {
-    const kids = [...level.children].filter(e => !SKIP.has(e.tagName) && visible(e));
+    const kids = [...level[0].children].filter(e => !SKIP.has(e.tagName) && visible(e));
     const big = kids.filter(e => e.getBoundingClientRect().height > 40);
     if (big.length > 1) { level = big; break; }
-    if (!big.length) { level = kids.length ? kids : [level]; break; }
-    level = big[0];
+    if (!big.length) break;
+    level = big;
   }
-  const list = Array.isArray(level) ? level : [level];
+  const limit = innerHeight * 2.2;
+  const split = (el, depth) => {
+    if (depth > 3 || el.getBoundingClientRect().height <= limit) return [el];
+    const kids = [...el.children].filter(e => !SKIP.has(e.tagName) && visible(e) && e.getBoundingClientRect().height > 40);
+    return kids.length > 1 ? kids.flatMap(k => split(k, depth + 1)) : [el];
+  };
+  const list = level.flatMap(e => split(e, 0));
   // Merge the tail rather than dropping it, so the whole page is covered.
   const out = list.slice(0, MAX_SECTIONS).map(e => [e]);
   list.slice(MAX_SECTIONS).forEach(e => out[out.length - 1].push(e));
   return out;
 }
 
-function describeSection(els, index, byId, nextId) {
+function describeSection(els, index, byId, twins, nextId) {
   const lines = [], nodes = [];
   const parentStyle = new WeakMap();
 
   const walk = (el, depth, inherited) => {
-    if (nodes.length >= MAX_NODES || SKIP.has(el.tagName) || el.id === 'codez-swarm' || !visible(el)) return;
+    if (nodes.length >= MAX_NODES || SKIP.has(el.tagName) || el.id === 'redraft' || !visible(el)) return;
     if (el.tagName === 'INPUT' && el.type === 'password') return;
     const s = getComputedStyle(el), r = el.getBoundingClientRect();
     const id = nextId();
@@ -69,7 +76,25 @@ function describeSection(els, index, byId, nextId) {
     lines.push(`${'  '.repeat(depth)}${id} ${label(el)}${text ? ` "${text}"` : ''} ${Math.round(r.width)}x${Math.round(r.height)}${changed ? ` ${changed}` : ''}`);
     nodes.push([id, el.tagName.toLowerCase(), Math.round(r.width), Math.round(r.height)]);
     parentStyle.set(el, look);
-    if (!OPAQUE.has(el.tagName.toUpperCase())) for (const c of el.children) walk(c, depth + 1, look);
+    if (OPAQUE.has(el.tagName.toUpperCase())) return;
+
+    // Cards in a grid are described once; the model styles them together with "same".
+    const seen = new Map();
+    for (const c of el.children) {
+      const key = label(c);
+      if (!seen.has(key)) seen.set(key, []);
+      seen.get(key).push(c);
+    }
+    for (const c of el.children) {
+      const group = seen.get(label(c));
+      if (group.length > 2 && group.indexOf(c) >= 2) continue;
+      const before = nodes.length;
+      walk(c, depth + 1, look);
+      if (group.length > 2 && group[0] === c && nodes.length > before) twins.set(nodes[before][0], group);
+    }
+    for (const group of seen.values()) {
+      if (group.length > 2) lines.push(`${'  '.repeat(depth + 1)}… ${group.length - 2} more like ${label(group[0])}`);
+    }
   };
 
   els.forEach(el => walk(el, 0, {}));
@@ -79,9 +104,9 @@ function describeSection(els, index, byId, nextId) {
 
 export function collectPage() {
   let n = 0;
-  const byId = new Map();
+  const byId = new Map(), twins = new Map();
   const groups = findSections(document.body);
-  const sections = groups.map((els, i) => describeSection(els, i, byId, () => ++n));
+  const sections = groups.map((els, i) => describeSection(els, i, byId, twins, () => ++n));
 
   const b = getComputedStyle(document.body);
   const outline = [
@@ -92,7 +117,7 @@ export function collectPage() {
     ...sections.map(s => `${s.index + 1}. ${s.title} (${s.nodes.length} nodes)\n${s.tree.split('\n').slice(0, 12).join('\n')}`),
   ].join('\n');
 
-  return { outline, sections, byId, nodes: n };
+  return { outline, sections, byId, twins, nodes: n };
 }
 
 // Plain data for the service worker: live elements cannot cross the message boundary.

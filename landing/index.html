@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Redraft</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Redraft is a Chrome extension that redesigns any website live. A swarm of Claude agents rebuilds the page in front of you.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Inter:wght@500;800&family=JetBrains+Mono:wght@400;700&family=Sora:wght@400;600;700&display=swap">
+<style id="base">
+  /* Always on, even while the page is plain HTML. */
+  #swarm-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 90; pointer-events: none; display: none; }
+  html.swarm-on #swarm-canvas { display: block; }
+  .t-rest { visibility: hidden !important; }
+  [data-deco] { display: none; }
+  #hud {
+    position: fixed; z-index: 100; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: 11px; height: 42px; padding: 0 7px 0 11px; max-width: calc(100vw - 24px);
+    border-radius: 13px; background: rgba(10, 15, 36, .94); border: 1px solid rgba(160, 180, 255, .2); box-shadow: 0 14px 40px rgba(4, 8, 30, .4);
+    font: 500 12px/1 Geist, system-ui, sans-serif; color: #f2f4ff; white-space: nowrap;
+  }
+  #hud[hidden] { display: none; }
+  #hud svg { display: block; flex: none; }
+  .hud-stat { color: #a3aed6; font-variant-numeric: tabular-nums; }
+  .hud-stat b { color: #fff; font-weight: 600; }
+  #hud-status { color: #a3aed6; overflow: hidden; text-overflow: ellipsis; }
+  #hud button { height: 28px; min-width: 28px; padding: 0 11px; border: 0; border-radius: 8px; background: rgba(160, 180, 255, .13); color: #f2f4ff; font: 600 12px/1 Geist, system-ui, sans-serif; cursor: pointer; }
+  #hud button:hover { background: rgba(160, 180, 255, .24); }
+  #hud[data-state="idle"] { padding: 0 7px; gap: 7px; }
+  #hud[data-state="idle"] > :not(#hud-replay):not(svg) { display: none; }
+  #hud:not([data-state="idle"]) #hud-replay { display: none; }
+  @media (max-width: 560px) { #hud-status { display: none; } }
+</style>
+<link rel="stylesheet" id="design" href="design.css">
+<script>
+  // The first paint is plain HTML on purpose: the swarm redesigns this very page.
+  (function () {
+    var root = document.documentElement, calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    root.dataset.skin = 'redraft';
+    if (calm || location.hash === '#skip') { root.classList.add(calm ? 'settled' : 'skipped'); return; }
+    root.classList.add('running', 'swarm-on');
+    document.getElementById('design').disabled = true;
+  })();
+</script>
+<noscript><style>#hud { display: none; }</style></noscript>
+</head>
+<body>
+
+<header class="nav" data-b="shape" data-fixed>
+  <a class="brand" href="#top" data-b="pop" data-fixed><img src="assets/logo.svg" alt="" width="30" height="30"><span>Redraft</span></a>
+  <nav aria-label="Sections">
+    <a href="#demo" data-b="pop" data-fixed>Demo</a>
+    <a href="#crew" data-b="pop" data-fixed>The crew</a>
+    <a href="#styles" data-b="pop" data-fixed>Styles</a>
+    <a href="#safety" data-b="pop" data-fixed>Privacy</a>
+    <a href="#faq" data-b="pop" data-fixed>FAQ</a>
+  </nav>
+  <a class="btn small" href="#install" data-b="pop" data-fixed>Download</a>
+</header>
+
+<main id="top">
+  <section class="hero" data-sec>
+    <i class="mark tl" data-deco></i><i class="mark tr" data-deco></i><i class="mark bl" data-deco></i><i class="mark br" data-deco></i>
+    <div class="giant" id="giant" data-deco data-b="shape" data-s="30">
+      <div class="giant-box"><span class="dim dim-w">1 cursor</span><span class="dim dim-h">240 agents</span><i></i><i></i><i></i><i></i></div>
+      <svg id="giant-mark" viewBox="30 16 94 98" aria-hidden="true"><path d="M38 28 L66 106 Q68 112 71 106 L84 74 L115 60 Q121 57 115 54 L44 22 Q35 19 38 28 Z"/></svg>
+      <b class="giant-tag">Redraft</b>
+    </div>
+    <div class="hero-copy">
+      <p class="eyebrow" data-b="type">Chrome extension · Runs on Claude</p>
+      <h1 data-b="type">Redesign any website. <em>Live.</em></h1>
+      <p class="lead" data-b="type">Click once. A swarm of Claude agents reads the page and rebuilds it in front of you, one real edit at a time.</p>
+      <div class="actions">
+        <a class="btn" href="#install" data-b="pop">Get Redraft</a>
+        <a class="btn ghost" href="#styles" data-b="pop">Restyle this page</a>
+      </div>
+    </div>
+    <aside class="feed" aria-label="What the agents are doing" data-b="shape">
+      <div class="feed-head"><span class="live"></span><span id="feed-count">Swarm active</span></div>
+      <ol id="feed"><li>Waiting for the swarm</li></ol>
+    </aside>
+  </section>
+
+  <section class="band" data-sec aria-label="Key numbers">
+    <dl>
+      <div data-b="pop"><dd>1</dd><dt>click to start</dt></div>
+      <div data-b="pop"><dd>240</dd><dt>cursors on screen</dt></div>
+      <div data-b="pop"><dd>100%</dd><dt>of the page restyled</dt></div>
+      <div data-b="pop"><dd>0</dd><dt>API keys needed</dt></div>
+    </dl>
+  </section>
+
+  <section class="demo" id="demo" data-sec>
+    <p class="kicker" data-b="type">Watch it work</p>
+    <h2 data-b="type">The agents never stop on this page.</h2>
+    <p data-b="type">Drag the handle to compare. The right side keeps being redrafted by the swarm, one style after another.</p>
+    <div class="window" data-b="shape">
+      <div class="chrome"><i></i><i></i><i></i><span id="window-url">plainbakery.test</span><b id="window-style">Editorial</b></div>
+      <div class="compare" id="compare">
+        <div class="mini before">
+          <b>Plain Bakery</b>
+          <h3>Fresh bread, every morning</h3>
+          <p>Baked on site since 1998.</p>
+          <button type="button" tabindex="-1">Order now</button>
+          <ul><li>Sourdough</li><li>Rye</li><li>Baguette</li></ul>
+        </div>
+        <div class="mini after" id="after" data-look="editorial" aria-hidden="true">
+          <b data-m>Plain Bakery</b>
+          <h3 data-m>Fresh bread, every morning</h3>
+          <p data-m>Baked on site since 1998.</p>
+          <button type="button" tabindex="-1" data-m>Order now</button>
+          <ul data-m><li>Sourdough</li><li>Rye</li><li>Baguette</li></ul>
+        </div>
+        <i class="seam" id="seam" data-deco></i>
+        <input id="compare-range" type="range" min="0" max="100" value="34" aria-label="Compare the page before and after the redesign">
+      </div>
+    </div>
+  </section>
+
+  <section class="crew" id="crew" data-sec>
+    <p class="kicker" data-b="type">The crew</p>
+    <h2 data-b="type">A design team that fits in a tab.</h2>
+    <div class="bento">
+      <article class="c-director" data-b="shape">
+        <span class="fig">Director</span>
+        <div class="art palette" id="art-palette" data-deco><i></i><i></i><i></i><i></i><i></i></div>
+        <h3 data-b="type">Sets one theme</h3>
+        <p data-b="type">Reads the whole page first, then picks palette, type, shape and shadows that belong together.</p>
+      </article>
+      <article class="c-engine" data-b="shape">
+        <span class="fig">Theme engine</span>
+        <div class="art counter" data-deco><b id="art-count">0</b><span>elements on this page alone</span></div>
+        <h3 data-b="type">Reaches every element</h3>
+        <p data-b="type">Applies the theme by role across the entire page, including sections that load later as you scroll.</p>
+      </article>
+      <article class="c-section" data-b="shape">
+        <span class="fig">Section agents</span>
+        <div class="art blocks" id="art-blocks" data-deco><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <h3 data-b="type">Refine in parallel</h3>
+        <p data-b="type">Several Claude agents work at once on hierarchy, spacing and emphasis, section by section.</p>
+      </article>
+      <article class="c-swarm" data-b="shape">
+        <span class="fig">The swarm</span>
+        <div class="art trail" data-deco><svg viewBox="0 0 300 90" aria-hidden="true"><path d="M6 72 C70 8 120 96 176 40 S 262 18 292 50" pathLength="1"/></svg></div>
+        <h3 data-b="type">Every edit is flown in</h3>
+        <p data-b="type">Nothing is faked. Each box a cursor draws is a real change landing on the real page.</p>
+      </article>
+      <article class="c-keep" data-b="shape">
+        <span class="fig">You</span>
+        <div class="art keys" data-deco><kbd>Undo</kbd><kbd>Copy CSS</kbd></div>
+        <h3 data-b="type">Keep it or drop it</h3>
+        <p data-b="type">Undo everything in one click, or take the CSS with you. A reload always brings the original back.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="styles" id="styles" data-sec>
+    <p class="kicker" data-b="type">Try it here</p>
+    <h2 data-b="type">Pick a style. This page changes.</h2>
+    <p data-b="type">Five presets ship with the extension. The real power is your own styles.</p>
+    <div class="chips" id="chips" role="group" aria-label="Restyle this page" data-b="pop">
+      <button type="button" data-skin="redraft" aria-pressed="true"><span class="sw" style="background:#1237e8;color:#fff">Aa</span>Redraft</button>
+      <button type="button" data-skin="editorial"><span class="sw" style="background:#f4efe6;color:#b4361e;font-family:Fraunces,serif">Aa</span>Editorial</button>
+      <button type="button" data-skin="terminal"><span class="sw" style="background:#0a0f0b;color:#4ade80;font-family:'JetBrains Mono',monospace">Aa</span>Terminal</button>
+      <button type="button" data-skin="glass"><span class="sw" style="background:#10182e;color:#7cc4ff;font-family:Sora,sans-serif">Aa</span>Soft glass</button>
+      <button type="button" data-skin="brutal"><span class="sw" style="background:#ffe100;color:#000;font-family:'Archivo Black',sans-serif">Aa</span>Brutalist</button>
+      <button type="button" data-skin="slop"><span class="sw" style="background:linear-gradient(120deg,#a855f7,#3b82f6);color:#fff;font-family:Inter,sans-serif">Aa</span>AI slop</button>
+    </div>
+    <h3 class="ways-title" data-b="type">Or bring your own style</h3>
+    <div class="grid three">
+      <article data-b="shape"><span class="fig">One click</span><h3 data-b="type">Copy it from any site</h3><p data-b="type">Like how a site looks? Redraft saves its colors, fonts and shapes as a style you can use anywhere.</p></article>
+      <article data-b="shape"><span class="fig">In words</span><h3 data-b="type">Describe it</h3><p data-b="type">Write the look you want once, save it, and reuse it on every site.</p></article>
+      <article data-b="shape"><span class="fig">By hand</span><h3 data-b="type">Build it</h3><p data-b="type">Set exact brand colors and fonts in the editor, then share the file with your team.</p></article>
+    </div>
+  </section>
+
+  <section class="safety" id="safety" data-sec>
+    <p class="kicker" data-b="type">Privacy</p>
+    <h2 data-b="type">It only touches what you point it at.</h2>
+    <div class="grid">
+      <article data-b="shape"><h3 data-b="type">One tab at a time</h3><p data-b="type">It runs only on the tab where you click it, and has no access to your other pages.</p></article>
+      <article data-b="shape"><h3 data-b="type">Forms stay private</h3><p data-b="type">Form values are never read and password fields are skipped. Emails, long numbers and tokens are masked.</p></article>
+      <article data-b="shape"><h3 data-b="type">Your Claude, your machine</h3><p data-b="type">It runs on the Claude Code already on your computer, with no API key, no new account and no server in the middle.</p></article>
+      <article data-b="shape"><h3 data-b="type">Agents can't touch your files</h3><p data-b="type">Page text can try to steer a model, so Claude Code runs with every tool off. Edits are limited to styling.</p></article>
+    </div>
+    <p class="fine" data-b="type">Redraft sends the page's visible text and styles to Claude. Avoid running it on pages you wouldn't paste into a chat.</p>
+  </section>
+
+  <section class="install" id="install" data-sec>
+    <p class="kicker" data-b="type">Install</p>
+    <h2 data-b="type">Running in two minutes.</h2>
+    <p data-b="type">Free. Not on the Chrome Web Store yet, so it installs from a folder.</p>
+    <ol class="setup">
+      <li data-b="shape">
+        <span class="fig">Step 1</span>
+        <h3 data-b="type">Download</h3>
+        <p data-b="type">A ready folder with the extension and the Claude Code bridge. Unzip it somewhere permanent.</p>
+        <a class="btn" id="download" href="redraft.zip" download="Redraft.zip" data-b="pop">Download Redraft</a>
+      </li>
+      <li data-b="shape">
+        <span class="fig">Step 2</span>
+        <h3 data-b="type">Load it in Chrome</h3>
+        <p data-b="type">Open chrome://extensions, turn on Developer mode, click Load unpacked and choose the extension folder.</p>
+      </li>
+      <li data-b="shape">
+        <span class="fig">Step 3</span>
+        <h3 data-b="type">Connect Claude</h3>
+        <div class="code"><pre id="code">node ~/Downloads/Redraft/bridge/connect.mjs</pre><button class="copy" id="copy" type="button">Copy</button></div>
+        <p data-b="type">Run this once in Terminal with Claude Code installed. Without it, or on Windows, paste an API key in Redraft settings.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section class="faq" id="faq" data-sec>
+    <p class="kicker" data-b="type">FAQ</p>
+    <h2 data-b="type">Good questions.</h2>
+    <details data-b="pop"><summary>Does it change the real website?</summary><p>No. Edits live in your browser tab, and a reload brings the original back. Use Copy CSS to keep a redesign.</p></details>
+    <details data-b="pop"><summary>Can I redesign a site in my own brand style?</summary><p>Yes. Save your style once, by copying it from your site or building it in the editor. Claude then works strictly inside it and adds no colors or fonts of its own.</p></details>
+    <details data-b="pop"><summary>Do I need an API key?</summary><p>No, if Claude Code is installed and you are logged in. Redraft talks to it through a small local bridge. An API key is the alternative for computers without Claude Code.</p></details>
+    <details data-b="pop"><summary>How much does a redesign cost?</summary><p>With Claude Code it uses your plan's normal limits. With an API key you pay Anthropic directly, and the bar on the page shows tokens as they are used.</p></details>
+    <details data-b="pop"><summary>Can agents rewrite the text?</summary><p>Only if you tick the box. By default they change styling and leave your words alone.</p></details>
+    <details data-b="pop"><summary>Will it work on every site?</summary><p>Most. Agents change CSS rather than restructure HTML, sites that re-render constantly can overwrite edits, and browser pages like chrome:// are off limits.</p></details>
+  </section>
+
+  <section class="final" data-sec>
+    <svg class="final-mark" viewBox="30 16 94 98" aria-hidden="true" data-deco><path d="M38 28 L66 106 Q68 112 71 106 L84 74 L115 60 Q121 57 115 54 L44 22 Q35 19 38 28 Z"/></svg>
+    <h2 data-b="type">Your next redesign takes one click.</h2>
+    <a class="btn light" href="redraft.zip" download="Redraft.zip" data-b="pop">Download Redraft</a>
+  </section>
+</main>
+
+<footer class="foot" data-sec>
+  <img src="assets/logo.svg" alt="" width="30" height="30" data-b="pop">
+  <p data-b="type">Redraft. Built with Claude.</p>
+</footer>
+
+<canvas id="swarm-canvas" aria-hidden="true"></canvas>
+<div id="hud" data-state="idle" role="status">
+  <svg width="15" height="15" viewBox="30 16 94 98" aria-hidden="true"><path d="M38 28 L66 106 Q68 112 71 106 L84 74 L115 60 Q121 57 115 54 L44 22 Q35 19 38 28 Z" fill="#ff5a1f"/></svg>
+  <span class="hud-stat"><b id="hud-agents">0</b> agents</span>
+  <span class="hud-stat"><b id="hud-edits">0</b> edits</span>
+  <span id="hud-status"></span>
+  <button id="hud-skip" type="button" aria-label="Skip to the finished page">Skip</button>
+  <button id="hud-replay" type="button">Replay</button>
+</div>
+
+<script src="swarm.js"></script>
+<script src="landing.js"></script>
+</body>
+</html>

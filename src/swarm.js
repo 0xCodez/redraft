@@ -11,6 +11,8 @@ class Swarm {
   // Selection colour, line colour and shape fill are themeable before the first frame.
   static BLUE = '#2f80ed';
   static LINE = '#7dbbff';
+  static INK = '#f5f5f4';
+  static OUTLINE = 'rgba(0,0,0,.45)';
   static RED = '#ef4444';
   static AMBER = '#f59e0b';
   static GREY = 'rgba(152,154,148,.72)';
@@ -18,7 +20,7 @@ class Swarm {
   constructor(canvas, opts = {}) {
     this.cv = canvas;
     this.ctx = canvas.getContext('2d');
-    this.opts = { trail: 26, maxLines: 1300, mesh: 96, sketch: true, ...opts };
+    this.opts = { trail: 26, maxLines: 1300, mesh: 96, sketch: true, sketchAlpha: 1, idle: [0, .25], ...opts };
     this.reset();
   }
 
@@ -173,15 +175,22 @@ class Swarm {
 
   // Idle agents never hover: they keep ruling straight lines across their part of the page.
   sketch(a, arena) {
+    // Out of bounds: come back to a random spot, so cursors never pile up on the edge.
+    if (a.x < arena.x0 || a.x > arena.x1 || a.y < arena.y0 || a.y > arena.y1) {
+      this.flyTo(a, rand(arena.x0, arena.x1), rand(arena.y0, arena.y1), rand(.3, .8));
+      return;
+    }
     const across = Math.random() < .5;
     const reach = rand(90, 460) * (Math.random() < .5 ? -1 : 1);
-    const x1 = across ? clamp(a.x + reach, arena.x0, arena.x1) : a.x;
-    const y1 = across ? a.y : clamp(a.y + reach, arena.y0, arena.y1);
+    const at = across ? a.x : a.y, lo = across ? arena.x0 : arena.y0, hi = across ? arena.x1 : arena.y1;
+    const to = clamp(at + reach > hi || at + reach < lo ? at - reach : at + reach, lo, hi);
+    const x1 = across ? to : a.x;
+    const y1 = across ? a.y : to;
     const d = rand(.28, .75);
     a.mode = Math.random() < .3 ? 'cross' : 'arrow';
     this.flyTo(a, x1, y1, d, true);
     a.fly.steady = true;
-    this.line(a.x, a.y, x1, y1, { color: a.color, d, alpha: rand(.2, .45), life: rand(.8, 2.2), tip: true });
+    this.line(a.x, a.y, x1, y1, { color: a.color, d, alpha: rand(.2, .45) * this.opts.sketchAlpha, life: rand(.8, 2.2), tip: true });
   }
 
   /* ---------- simulation ---------- */
@@ -221,7 +230,7 @@ class Swarm {
       a.y += (r.y + r.h / 2 + Math.sin(turn) * (r.h / 2 + 16) - a.y) * .12;
     } else if (arena && !a.exit && this.opts.sketch) {
       a.rest -= dt;
-      if (a.rest <= 0) { a.rest = rand(0, .25); this.sketch(a, arena); }
+      if (a.rest <= 0) { a.rest = rand(...this.opts.idle); this.sketch(a, arena); }
     }
   }
 
@@ -414,7 +423,7 @@ class Swarm {
       ctx.fillRect(x - 6, y - 1, 12, 2.4);
       ctx.fillRect(x - 1, y - 6, 2.4, 12);
     } else if (a.mode === 'ibeam') {
-      ctx.strokeStyle = '#f5f5f4';
+      ctx.strokeStyle = Swarm.INK;
       ctx.lineWidth = 1.3;
       ctx.beginPath();
       ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6);
@@ -423,11 +432,19 @@ class Swarm {
       ctx.stroke();
     } else {
       ctx.fillStyle = a.color;
-      ctx.strokeStyle = 'rgba(0,0,0,.45)';
-      ctx.lineWidth = .7;
+      ctx.strokeStyle = Swarm.OUTLINE;
+      ctx.lineWidth = a.name ? 1.2 : .7;
       ctx.beginPath();
       ctx.moveTo(x, y); ctx.lineTo(x + 3.8, y + 14.5); ctx.lineTo(x + 6.4, y + 8.2); ctx.lineTo(x + 13, y + 5.6);
       ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    if (a.name) {
+      ctx.font = '600 10.5px "Geist Mono", ui-monospace, Menlo, monospace';
+      const w = ctx.measureText(a.name).width + 12;
+      ctx.fillStyle = a.color;
+      ctx.beginPath(); ctx.roundRect(x + 11, y + 13, w, 18, 5); ctx.fill();
+      ctx.fillStyle = a.tagInk || '#fff';
+      ctx.fillText(a.name, x + 17, y + 26);
     }
   }
 }

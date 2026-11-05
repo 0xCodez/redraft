@@ -24,6 +24,30 @@ export function cleanCss(css) {
   return Object.keys(out).length ? out : null;
 }
 
+const THEME_COLORS = ['bg', 'surface', 'text', 'muted', 'accent', 'accentText', 'border'];
+
+export function cleanTheme(op) {
+  const t = {};
+  for (const key of THEME_COLORS) {
+    const v = op[key];
+    if (typeof v !== 'string' || !v.trim() || v.length > 60 || BAD_VALUE.test(v)) return null;
+    t[key] = v.trim();
+  }
+  const short = (v, fallback) => (typeof v === 'string' && v.length <= 80 && !BAD_VALUE.test(v) && !/[;{}]/.test(v) ? v.trim() : fallback);
+  const font = (v, generic) => (FONT.test(v || '') ? `"${v}", ${generic}` : generic);
+  t.headingFont = font(op.headingFont, 'system-ui, sans-serif');
+  t.bodyFont = font(op.bodyFont, 'system-ui, sans-serif');
+  t.monoFont = font(op.monoFont, 'ui-monospace, monospace');
+  t.headingWeight = /^[1-9]00$/.test(String(op.headingWeight)) ? String(op.headingWeight) : '700';
+  t.headingSpacing = short(op.headingSpacing, 'normal');
+  t.headingCase = op.headingCase === 'uppercase' ? 'uppercase' : 'none';
+  t.radius = short(op.radius, '8px');
+  t.pill = short(op.pill, '999px');
+  t.borderWidth = short(op.borderWidth, '');
+  t.shadow = short(op.shadow, 'none');
+  return t;
+}
+
 export function validateOp(op, { allowText = false } = {}) {
   if (!op || typeof op !== 'object') return null;
   switch (op.op) {
@@ -31,6 +55,10 @@ export function validateOp(op, { allowText = false } = {}) {
       return { op: 'brief', name: String(op.name || '').slice(0, 60), summary: String(op.summary || '').slice(0, 1200) };
     case 'font':
       return FONT.test(op.family || '') ? { op: 'font', family: op.family } : null;
+    case 'theme': {
+      const theme = cleanTheme(op);
+      return theme ? { op: 'theme', theme } : null;
+    }
     case 'rule': {
       const css = cleanCss(op.css);
       const selector = typeof op.selector === 'string' ? op.selector.trim() : '';
@@ -40,7 +68,7 @@ export function validateOp(op, { allowText = false } = {}) {
     }
     case 'style': {
       const css = cleanCss(op.css);
-      return css && Number.isInteger(op.id) ? { op: 'style', id: op.id, css } : null;
+      return css && Number.isInteger(op.id) ? { op: 'style', id: op.id, css, same: op.same === true } : null;
     }
     case 'hide':
       return Number.isInteger(op.id) ? { op: 'hide', id: op.id } : null;
@@ -98,9 +126,9 @@ export function scrub(text) {
 }
 
 export const PRESETS = {
-  editorial: { label: 'Editorial', prompt: 'A confident print-magazine feel: strong serif headlines, generous margins, warm paper tones, one ink accent.', demo: { bg: '#f4efe6', fg: '#1b1a17', soft: '#6b665c', accent: '#b4361e', card: '#fbf8f1', font: 'Fraunces', radius: '2px' } },
-  terminal: { label: 'Terminal', prompt: 'A precise developer terminal: near-black, phosphor green accent, monospace everywhere, hairline borders, no shadows.', demo: { bg: '#0a0f0b', fg: '#d6f5dc', soft: '#7ea487', accent: '#4ade80', card: '#101812', font: 'JetBrains Mono', radius: '0px' } },
-  glass: { label: 'Soft glass', prompt: 'Calm frosted glass on a deep blue dusk: translucent panels, soft large radii, airy spacing, a single cool accent.', demo: { bg: '#10182e', fg: '#eaf0ff', soft: '#9fb0d6', accent: '#7cc4ff', card: 'rgba(255,255,255,.08)', font: 'Sora', radius: '18px' } },
-  brutal: { label: 'Brutalist', prompt: 'Raw neo-brutalism: stark white, thick black borders, hard offset shadows, huge grotesk type, one loud yellow.', demo: { bg: '#ffffff', fg: '#000000', soft: '#333333', accent: '#ffe100', card: '#ffffff', font: 'Archivo Black', radius: '0px' } },
-  slop: { label: 'AI slop', prompt: 'Deliberately parody the generic AI landing page: purple-to-blue gradients, glassy cards, glowing buttons, Inter everywhere, oversized rounded corners.', demo: { bg: '#0f0a24', fg: '#f2eeff', soft: '#b5a8e0', accent: '#a855f7', card: 'rgba(168,85,247,.14)', font: 'Inter', radius: '24px' } },
+  editorial: { label: 'Editorial', prompt: 'A confident print-magazine feel: strong serif headlines, generous margins, warm paper tones, one ink accent.', demo: { bg: '#f4efe6', surface: '#fbf8f1', text: '#1b1a17', muted: '#6b665c', accent: '#b4361e', accentText: '#ffffff', border: '#d8d0c2', headingFont: 'Fraunces', bodyFont: 'Inter', headingWeight: 600, headingSpacing: '-.02em', radius: '2px', pill: '2px', shadow: 'none' } },
+  terminal: { label: 'Terminal', prompt: 'A precise developer terminal: near-black, phosphor green accent, monospace everywhere, hairline borders, no shadows.', demo: { bg: '#0a0f0b', surface: '#101812', text: '#d6f5dc', muted: '#7ea487', accent: '#4ade80', accentText: '#06120a', border: '#24412c', headingFont: 'JetBrains Mono', bodyFont: 'JetBrains Mono', headingWeight: 700, headingSpacing: '-.03em', radius: '0px', pill: '0px', shadow: 'none' } },
+  glass: { label: 'Soft glass', prompt: 'Calm frosted glass on a deep blue dusk: translucent panels, soft large radii, airy spacing, a single cool accent.', demo: { bg: '#10182e', surface: 'rgba(255,255,255,.08)', text: '#eaf0ff', muted: '#a9b9dc', accent: '#7cc4ff', accentText: '#06223c', border: 'rgba(255,255,255,.18)', headingFont: 'Sora', bodyFont: 'Sora', headingWeight: 600, headingSpacing: '-.03em', radius: '18px', pill: '999px', shadow: '0 18px 50px rgba(3,8,24,.4)' } },
+  brutal: { label: 'Brutalist', prompt: 'Raw neo-brutalism: stark white, thick black borders, hard offset shadows, huge grotesk type, one loud yellow.', demo: { bg: '#ffffff', surface: '#ffffff', text: '#000000', muted: '#222222', accent: '#ffe100', accentText: '#000000', border: '#000000', borderWidth: '3px', headingFont: 'Archivo Black', bodyFont: 'Inter', headingWeight: 400, headingSpacing: '-.02em', headingCase: 'uppercase', radius: '0px', pill: '0px', shadow: '6px 6px 0 #000' } },
+  slop: { label: 'AI slop', prompt: 'Deliberately parody the generic AI landing page: purple-to-blue gradients, glassy cards, glowing buttons, Inter everywhere, oversized rounded corners.', demo: { bg: '#0f0a24', surface: 'rgba(168,85,247,.14)', text: '#f2eeff', muted: '#bcb0e6', accent: '#a855f7', accentText: '#ffffff', border: 'rgba(168,85,247,.35)', headingFont: 'Inter', bodyFont: 'Inter', headingWeight: 800, headingSpacing: '-.04em', radius: '24px', pill: '999px', shadow: '0 0 40px rgba(168,85,247,.35)' } },
 };

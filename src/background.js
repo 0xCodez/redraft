@@ -1,10 +1,11 @@
 // Service worker. Holds the API key, runs the agents, and writes stylesheets through
 // chrome.scripting so they work on pages whose CSP blocks inline <style>.
 import Anthropic from '@anthropic-ai/sdk';
-import { runRedesign } from './pipeline.js';
+import { anthropicProvider, runRedesign } from './pipeline.js';
+import { claudeCodeProvider } from './claudecode.js';
 import { runDemo } from './demo.js';
 
-export const DEFAULTS = { apiKey: '', model: 'claude-opus-5-5', effort: 'medium', concurrency: 4, apiBaseUrl: '' };
+export const DEFAULTS = { connection: 'claude-code', apiKey: '', model: 'claude-opus-5-5', effort: 'medium', concurrency: 4, apiBaseUrl: '' };
 
 const friendly = err => {
   if (err instanceof Anthropic.AuthenticationError) return 'Your API key was rejected. Check it in the extension options.';
@@ -14,6 +15,26 @@ const friendly = err => {
   if (err instanceof Anthropic.APIError) return `Claude API error ${err.status ?? ''}: ${err.message}`;
   return err.message || String(err);
 };
+
+function providerFor(cfg) {
+  if (cfg.connection === 'claude-code') return claudeCodeProvider();
+  if (!cfg.apiKey) throw new Error('Add your Anthropic API key in the extension options first.');
+  // The key stays in this worker. dangerouslyAllowBrowser is required by the SDK outside
+  // Node; here the key belongs to the person running their own extension.
+  const client = new Anthropic({ apiKey: cfg.apiKey, dangerouslyAllowBrowser: true, ...(cfg.apiBaseUrl ? { baseURL: cfg.apiBaseUrl } : {}) });
+  return anthropicProvider(client, cfg.model);
+}
+
+// The options page asks whether the bridge answers.
+chrome.runtime.onMessage.addListener((message, _sender, reply) => {
+  if (message.type !== 'check-bridge') return;
+  const bridge = claudeCodeProvider();
+  bridge.ping()
+    .then(r => reply(r.ok ? { ok: true, version: r.version } : { ok: false, message: 'The bridge runs, but Claude Code did not answer.' }))
+    .catch(err => reply({ ok: false, message: err.message }))
+    .finally(() => bridge.close());
+  return true;
+});
 
 chrome.runtime.onConnect.addListener(port => {
   if (port.name !== 'swarm') return;
@@ -34,16 +55,17 @@ chrome.runtime.onConnect.addListener(port => {
       controller.abort();
     } else if (message.type === 'start') {
       try {
-        const { page, style, preset, allowText, demo } = message;
+        const { page, style, preset, savedStyle, allowText, demo } = message;
         if (demo) {
-          await runDemo({ page, preset, emit: send, signal: controller.signal });
+          await runDemo({ page, preset, savedStyle, emit: send, signal: controller.signal });
         } else {
           const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(Object.keys(DEFAULTS))) };
-          if (!cfg.apiKey) throw new Error('Add your Anthropic API key in the extension options first.');
-          // The key stays in this worker. dangerouslyAllowBrowser is required by the SDK
-          // outside Node; here the key belongs to the person running their own extension.
-          const client = new Anthropic({ apiKey: cfg.apiKey, dangerouslyAllowBrowser: true, ...(cfg.apiBaseUrl ? { baseURL: cfg.apiBaseUrl } : {}) });
-          await runRedesign({ client, model: cfg.model, effort: cfg.effort, concurrency: cfg.concurrency, page, style, allowText, emit: send, signal: controller.signal });
+          const provider = providerFor(cfg);
+          try {
+            await runRedesign({ provider, effort: cfg.effort, concurrency: cfg.concurrency, page, style, savedStyle, allowText, emit: send, signal: controller.signal });
+          } finally {
+            provider.close?.();
+          }
         }
         send({ type: 'done' });
       } catch (err) {

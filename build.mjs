@@ -18,7 +18,7 @@ await build({
 });
 if (e2e) {
   const file = `${out}/manifest.json`, manifest = JSON.parse(await readFile(file, 'utf8'));
-  manifest.host_permissions.push('http://localhost/*', 'http://127.0.0.1/*');
+  manifest.host_permissions.push('<all_urls>');
   await writeFile(file, JSON.stringify(manifest, null, 2));
 }
 console.log(`built ${out}/`);

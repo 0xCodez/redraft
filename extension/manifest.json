@@ -1,11 +1,36 @@
 {
   "manifest_version": 3,
-  "name": "Codez Swarm",
+  "name": "Redraft",
   "version": "0.1.0",
-  "description": "Redesign any site live: Claude agents restyle the page while a swarm of cursors rebuilds it in front of you.",
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://api.anthropic.com/*"],
-  "background": { "service_worker": "background.js", "type": "module" },
-  "action": { "default_popup": "popup.html", "default_title": "Codez Swarm" },
-  "options_page": "options.html"
+  "description": "Redesign any website live. A swarm of Claude agents rebuilds the page in front of you.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://api.anthropic.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Redraft this page",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "options_page": "options.html",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwkjruHqcKPub4kgKk90zkTt0U/YKJ9lV1/R/BOY6/jYnYiY7Jez88WxaP1JCH9lyeb5g/ExvqlZKlevnVEFIdigqb84GSAapqBNoivVHutVroZuYwNz86sL05CKZw5dAg3/ZXLlQrIeuPUAUd+ae+vv32OJLaI6j3JZWpUyg0IQ0yBGWp0wfYivE6qr+12FRXPoVCWWkHlbY3TVEnA6uL3VKLvTMHACGerHlgJ9WB6GlHAhAyPqBuK3QU5B0DVokHccsKzm3bOsVamsWr2RN+uubgVC7r4LdR8xYkvahtxYk3ZvyKyDFciYazpkkH06pbK/du7LnzcbAFsACqSDtDQIDAQAB",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }

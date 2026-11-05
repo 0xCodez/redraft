@@ -4,12 +4,14 @@
 import './swarm.js';
 import { collectPage, wirePage } from './snapshot.js';
 import { fontImport, ruleToCss } from './protocol.js';
+import { planTheme, themeVars } from './theme.js';
+import { capturePage } from './capture.js';
 
 const Swarm = globalThis.Swarm;
-// The 0xCodez look: pages turn into a red blueprint with white lines while they are rebuilt.
+// Pages turn into a blue blueprint with white lines while they are rebuilt.
 Object.assign(Swarm, {
   BLUE: '#ffffff', LINE: '#ffffff', GREY: 'rgba(255,255,255,.2)',
-  COLORS: ['#ffffff', '#ffd166', '#ffb4a8', '#111111', '#7dd3fc', '#ffe3de', '#ff9c8e', '#fff3b0'],
+  COLORS: ['#ffffff', '#ff5a1f', '#ffd166', '#9fb6ff', '#7dd3fc', '#ffffff', '#ffb38f', '#d6e0ff'],
 });
 const { BLUE, GREY } = Swarm;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -18,32 +20,34 @@ const HUD_CSS = `
   :host { all: initial; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2147483646; }
   #hud {
-    position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 2147483647;
-    display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 6px 0 12px; max-width: calc(100vw - 24px);
-    border-radius: 11px; background: rgba(30,32,30,.94); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 8px 28px rgba(0,0,0,.5);
-    font: 500 11.5px/1 Inter, system-ui, sans-serif; color: #e7e7e4; white-space: nowrap; pointer-events: auto;
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483647;
+    display: flex; align-items: center; gap: 11px; height: 44px; padding: 0 7px 0 10px; max-width: calc(100vw - 24px);
+    border-radius: 13px; background: rgba(10, 15, 36, .94); border: 1px solid rgba(160, 180, 255, .2);
+    box-shadow: 0 14px 40px rgba(4, 8, 30, .55), inset 0 1px 0 rgba(255, 255, 255, .06); backdrop-filter: blur(14px);
+    font: 500 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; color: #f2f4ff; white-space: nowrap; pointer-events: auto;
   }
-  #dots { display: inline-flex; } #dots i { width: 12px; height: 12px; border-radius: 50%; margin-left: -4px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
-  #dots i:first-child { margin-left: 0; }
-  .stat { color: #bdbdb8; font-variant-numeric: tabular-nums; } .stat b { color: #fff; font-weight: 600; }
-  #status { color: #bdbdb8; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
-  #bar { width: 90px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.16); overflow: hidden; flex: 0 1 90px; } #bar i { display: block; height: 100%; width: 0; background: #e3170a; }
-  button { height: 26px; min-width: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: rgba(255,255,255,.09); color: #e7e7e4; font: 500 11px/1 Inter, system-ui, sans-serif; cursor: pointer; }
-  button:hover { background: rgba(255,255,255,.17); }
-  button.main { background: #d90b0b; color: #fff; }
+  #mark { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 7px; background: #1237e8; }
+  .stat { color: #a3aed6; font-variant-numeric: tabular-nums; } .stat b { color: #fff; font-weight: 650; }
+  #status { color: #a3aed6; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  #bar { width: 84px; height: 3px; border-radius: 3px; background: rgba(160, 180, 255, .18); overflow: hidden; flex: 0 1 84px; } #bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: #ff5a1f; }
+  button { height: 30px; min-width: 30px; padding: 0 11px; border: 0; border-radius: 8px; background: rgba(160, 180, 255, .13); color: #f2f4ff; font: 550 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; cursor: pointer; }
+  button:hover { background: rgba(160, 180, 255, .24); }
+  button.main { background: #1237e8; color: #fff; }
+  button.main:hover { background: #3457ff; }
   [hidden] { display: none !important; }
+  @media (max-width: 620px) { #bar, #tokens-wrap { display: none; } }
 `;
 
 function createStage() {
   const host = document.createElement('div');
-  host.id = 'codez-swarm';
+  host.id = 'redraft';
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `<style>${HUD_CSS}</style><canvas></canvas>
     <div id="hud" hidden>
-      <span id="dots">${Swarm.COLORS.slice(0, 5).map(c => `<i style="background:${c}"></i>`).join('')}</span>
+      <span id="mark"><svg width="13" height="13" viewBox="30 16 94 98" aria-hidden="true"><path d="M38 28 L66 106 Q68 112 71 106 L84 74 L115 60 Q121 57 115 54 L44 22 Q35 19 38 28 Z" fill="#fff"/></svg></span>
       <span class="stat"><b id="agents">0</b> agents</span>
       <span class="stat"><b id="ops">0</b> edits</span>
-      <span class="stat"><b id="tokens">0</b> tokens</span>
+      <span class="stat" id="tokens-wrap"><b id="tokens">0</b> tokens</span>
       <span id="status"></span>
       <span id="bar"><i id="fill"></i></span>
       <button id="speed" title="Change speed">1x</button>
@@ -55,7 +59,7 @@ function createStage() {
   document.documentElement.append(host);
   const $ = id => root.getElementById(id);
   const swarm = new Swarm(root.querySelector('canvas'), { maxLines: 1500 });
-  const paper = () => { swarm.veilColor = '196,12,8'; swarm.veilGrid = true; };
+  const paper = () => { swarm.veilColor = '18,55,232'; swarm.veilGrid = true; };
 
   let R = null;           // the current run
   let touched = null;     // what Undo restores; survives the end of a run
@@ -71,7 +75,7 @@ function createStage() {
   function applyStyle(el, css) {
     remember(el);
     for (const [k, v] of Object.entries(css)) el.style.setProperty(k, v, 'important');
-    touched.exportStyles.push({ el, css });
+    if (touched.exportStyles.length < 4000) touched.exportStyles.push({ el, css });
   }
   function applyRule(op) {
     const css = ruleToCss(op);
@@ -109,8 +113,85 @@ function createStage() {
 
   /* ---------- turning one op into one cursor's job ---------- */
 
+  /* ---------- the theme sweep: every element, top to bottom ---------- */
+
+  function startSweep(theme) {
+    const grounds = new WeakMap();
+    const plan = planTheme(document.body, theme, grounds);
+    R.theme = theme;
+    R.grounds = grounds;
+    applyRule({ selector: ':root', css: themeVars(theme) });
+    applyRule({ selector: 'html, body', css: { background: theme.bg, color: theme.text } });
+
+    const sticky = plan.filter(p => p.fixed), flow = plan.filter(p => !p.fixed).sort((a, b) => a.top - b.top);
+    const H = document.documentElement.scrollHeight;
+    R.sweep = { flow, at: 0, front: 0, H, band: null, duration: clamp(7 + H / 1500, 9, 22), jobs: 0 };
+    for (const p of sticky) { applyStyle(p.el, p.css); R.played++; }
+    R.received += plan.length;
+    R.focus = 0;
+    setStatus(`Restyling ${plan.length} elements`);
+    watchForNewNodes();
+  }
+
+  function sweepStep(dt) {
+    const s = R.sweep, H = innerHeight;
+    s.front = Math.min(s.H + 40, s.front + dt * s.H / s.duration);
+    let chosen = 0;
+    while (s.at < s.flow.length && s.flow[s.at].top < s.front) {
+      const p = s.flow[s.at++];
+      const area = p.width * p.height;
+      // Cursors take the visible pieces. The rest land with the sweep line.
+      if (p.el.isConnected && chosen < 6 && area > 900 && p.top > scrollY - 100 && p.top < scrollY + H) {
+        chosen++;
+        const rect = rectOf(p.el, false), r = rect(), big = area > 40000;
+        const a = swarm.nearestFree(r.x, r.y) || swarm.spawn(true);
+        swarm.assign(a, {
+          rect, spray: big || Math.random() < .3,
+          ...(big ? { kind: 'draw', mode: 'cross', dur: .5, fill: GREY, handles: true, badge: true } : { kind: 'trace', dur: .22, stroke: BLUE, badge: Math.random() < .3, label: Object.keys(p.css)[0] }),
+          onDone() { if (p.el.isConnected) applyStyle(p.el, p.css); },
+        });
+      } else if (p.el.isConnected) applyStyle(p.el, p.css);
+      R.played++;
+    }
+    // The blueprint lifts along one line, so nothing half-styled is ever shown.
+    if (!s.band) { s.band = { x: 0, y: 0, w: innerWidth, h: 0, a: 1, fixed: false }; swarm.holes.push(s.band); }
+    s.band.w = innerWidth;
+    s.band.h = s.front;
+    swarm.line(0, s.front, innerWidth, s.front, { d: .01, life: .25, alpha: .9, color: '#ffffff' });
+    R.focus = s.front - innerHeight * .25;
+    if (s.front >= s.H + 40 && s.at >= s.flow.length) {
+      R.sweep = null;
+      R.swept = true;
+      R.at = 0;
+      setStatus('Agents are refining');
+    }
+  }
+
+  // Lazy sections and re-rendered components arrive later and need the theme too.
+  function watchForNewNodes() {
+    touched.observer?.disconnect();
+    const theme = R.theme, grounds = R.grounds;
+    let pending = [];
+    const flush = () => {
+      const batch = pending; pending = [];
+      if (!touched) return;
+      touched.observer?.disconnect();
+      for (const el of batch) {
+        if (!el.isConnected) continue;
+        for (const p of planTheme(el, theme, grounds)) applyStyle(p.el, p.css);
+      }
+      touched.observer?.observe(document.body, { childList: true, subtree: true });
+    };
+    touched.observer = new MutationObserver(records => {
+      for (const r of records) for (const n of r.addedNodes) if (n.nodeType === 1 && n.id !== 'redraft') pending.push(n);
+      if (pending.length) setTimeout(flush, 120);
+    });
+    touched.observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   function play({ op }) {
     if (op.op === 'font') { applyFont(op.family); return done(); }
+    if (op.op === 'theme') { startSweep(op.theme); return done(); }
 
     const el = op.id != null ? R.page.byId.get(op.id) : firstMatch(op.selector);
     if (op.op !== 'rule' && (!el || !el.isConnected)) return done();
@@ -119,7 +200,7 @@ function createStage() {
     const rect = el ? rectOf(el, fixed) : () => ({ x: innerWidth / 2 - 120, y: 80, w: 240, h: 70 });
     const r = rect();
     const big = r.w * r.h > 40000;
-    R.focus = fixed ? R.focus : r.y;
+    if (!fixed && R.at >= 0) R.focus = Math.max(R.focusFloor, r.y);
 
     const job = { rect, fixed, spray: big || Math.random() < .35 };
     if (op.op === 'text') {
@@ -134,21 +215,24 @@ function createStage() {
         onDone() { el.textContent = op.text; finish(rect()); },
       });
     } else {
-      const label = op.op === 'rule' ? op.selector : Object.keys(op.css)[0];
+      const label = op.op === 'rule' ? op.selector : op.op === 'hide' ? 'hide' : Object.keys(op.css)[0];
       Object.assign(job, big
         ? { kind: 'draw', mode: 'cross', dur: clamp(.3 + Math.sqrt(r.w * r.h) / 1100, .35, .9), fill: GREY, handles: true, badge: true, label: `${Math.round(r.w)} × ${Math.round(r.h)}` }
-        : { kind: 'trace', dur: .22, stroke: [BLUE, BLUE, '#ffd166', '#111111'][Math.random() * 4 | 0], badge: Math.random() < .5, label });
+        : { kind: 'trace', dur: .22, stroke: [BLUE, BLUE, '#ffd166', '#ff5a1f'][Math.random() * 4 | 0], badge: Math.random() < .5, label });
       job.onDone = () => {
         if (op.op === 'rule') applyRule(op);
         else if (op.op === 'hide') applyStyle(el, { display: 'none' });
-        else applyStyle(el, op.css);
+        else {
+          applyStyle(el, op.css);
+          if (op.same) for (const twin of R.page.twins.get(op.id) || []) applyStyle(twin, op.css);
+        }
         finish(rect());
       };
     }
     const a = swarm.nearestFree(r.x, r.y) || swarm.spawn(true);
     swarm.assign(a, job);
 
-    function finish(box) { if (op.op !== 'rule') punch(box, fixed); done(); }
+    function finish(box) { if (op.op !== 'rule' && !R?.swept) punch(box, fixed); done(); }
   }
 
   function done() {
@@ -199,41 +283,67 @@ function createStage() {
   }
 
   function direct(dt) {
+    if (R.sweep) { sweepStep(dt); return; }
     const current = R.order[R.at];
     const q = R.queues.get(current) || [];
-    const backlog = q.length;
-    R.credit += dt * clamp(9 + backlog / 2, 9, 70);
+    R.credit += dt * clamp(9 + q.length / 2, 9, 70);
     while (R.credit >= 1 && q.length) {
       R.credit--;
-      play(q.shift());
+      try { play(q.shift()); } catch (err) { console.warn('[Redraft] skipped an edit:', err); }
       R.played++;
+      if (R.sweep) return;
     }
     R.credit = Math.min(R.credit, 4);
-    if (!q.length && R.finished.has(current) && !swarm.busy()) {
+    if (R.waitingFor !== current) { R.waitingFor = current; R.waitStart = performance.now(); }
+    if (q.length) R.waitStart = performance.now();
+    const patient = performance.now() - R.waitStart < 45000;
+    if (!q.length && (R.finished.has(current) || !patient) && !swarm.busy()) {
       const section = R.page.sections[current];
-      if (section) {
+      if (section && !R.swept) {
         for (const el of section.els) if (el.isConnected) { const r = el.getBoundingClientRect(); punch({ x: r.left, y: r.top + scrollY, w: r.width, h: r.height }, false, true); }
       }
       R.at++;
-      if (R.at < R.order.length) setStatus(`Section ${R.at} of ${R.order.length - 1}`);
+      if (R.at < R.order.length) {
+        setStatus(`Refining section ${R.at} of ${R.order.length - 1}`);
+        const next = R.page.sections[R.order[R.at]];
+        const el = next?.els.find(e => e.isConnected);
+        if (el) R.focusFloor = R.focus = el.getBoundingClientRect().top + scrollY;
+      }
     }
   }
 
   function camera(raw, now) {
     if (now < R.userHold) { R.cam = scrollY; return; }
     const max = document.documentElement.scrollHeight - innerHeight;
-    const want = clamp(R.focus - innerHeight * .4, 0, Math.max(0, max));
-    R.cam += (want - R.cam) * (1 - Math.exp(-raw * R.speed * 1.4));
+    const want = clamp(R.focus - innerHeight * .3, 0, Math.max(0, max));
+    // Glide, never jump: a long page must stay readable while the camera crosses it.
+    const step = (want - R.cam) * (1 - Math.exp(-raw * R.speed * 2.2));
+    R.cam += clamp(step, -raw * R.speed * 2600, raw * R.speed * 2600);
     scrollTo({ top: R.cam, behavior: 'instant' });
   }
 
   function frame(now) {
     if (!R) return;
+    try {
+      tick(now);
+    } catch (err) {
+      // A page can throw anything at us. Finish the run rather than leave the blueprint up.
+      console.warn('[Redraft] recovering from:', err);
+      R.failed = true;
+      R.allDone = true;
+      R.finished = new Set(R.order);
+      R.sweep = null;
+      R.swept = true;
+    }
+    if (R) requestAnimationFrame(frame);
+  }
+
+  function tick(now) {
     const gap = (now - R.last) / 1000, raw = Math.min(.05, gap), dt = raw * R.speed;
     R.last = now;
 
     if (R.phase !== 'exit') {
-      R.veilT = Math.min(1, R.veilT + dt / .8);
+      R.veilT = R.swept ? Math.max(0, R.veilT - dt / .8) : Math.min(1, R.veilT + dt / .8);
       swarm.veil = .95 * R.veilT;
     }
     if (R.want() > swarm.agents.length) swarm.spawn(true).rest = 0;
@@ -248,7 +358,7 @@ function createStage() {
     } else if (R.phase === 'build') {
       direct(dt);
       camera(raw, now);
-      if (R.allDone && R.at >= R.order.length && !swarm.busy()) {
+      if (R.allDone && !R.sweep && R.at >= R.order.length && !swarm.busy()) {
         R.phase = 'exit'; R.exitT = 1.8;
         swarm.leave();
       }
@@ -257,7 +367,7 @@ function createStage() {
       R.exitT -= dt;
       if (R.exitT <= 0) { finish(); return; }
     }
-    if (R.allDone && R.failed && R.phase !== 'exit') { R.phase = 'exit'; R.exitT = 1.8; swarm.leave(); }
+    if (R.allDone && R.failed && R.phase !== 'exit') { R.phase = 'exit'; R.exitT = 1.8; R.swept = true; swarm.leave(); }
 
     const arena = R.phase !== 'exit' && { x0: 0, x1: innerWidth, y0: scrollY + 8, y1: scrollY + innerHeight - 8 };
     swarm.step(dt, arena);
@@ -266,8 +376,7 @@ function createStage() {
     $('agents').textContent = swarm.agents.length;
     $('ops').textContent = R.played;
     $('tokens').textContent = R.tokens > 999 ? `${(R.tokens / 1000).toFixed(1)}k` : R.tokens;
-    $('fill').style.width = `${R.received ? R.played / R.received * 100 : 0}%`;
-    requestAnimationFrame(frame);
+    $('fill').style.width = `${R.received ? Math.min(100, R.played / R.received * 100) : 0}%`;
   }
 
   function finish() {
@@ -285,7 +394,7 @@ function createStage() {
     if (R) return;
     if (touched) undo();
     const page = collectPage();
-    touched = { styles: new Map(), texts: new Map(), exportRules: [], exportStyles: [] };
+    touched = { styles: new Map(), texts: new Map(), exportRules: [], exportStyles: [], observer: null };
     port?.disconnect();
     port = chrome.runtime.connect({ name: 'swarm' });
     port.onMessage.addListener(feed);
@@ -299,7 +408,7 @@ function createStage() {
     R = {
       page, phase: 'scan', clock: 0, last: performance.now(), started: performance.now(), speed: 1, userHold: 0, cam: scrollY, focus: scrollY + innerHeight * .4,
       queues: new Map(), order: [-1, ...page.sections.map(s => s.index)], at: 0, finished: new Set(), credit: 0,
-      received: 0, played: 0, applied: 0, tokens: 0, workers: 0, veilT: 0, maxAgents, wantAgents: 70, want() { return this.wantAgents; },
+      received: 0, played: 0, applied: 0, tokens: 0, focusFloor: 0, swept: false, sweep: null, workers: 0, veilT: 0, maxAgents, wantAgents: 70, want() { return this.wantAgents; },
     };
     R.scan = scanQueue();
     for (let n = 0; n < 40; n++) swarm.spawn(false);
@@ -309,7 +418,7 @@ function createStage() {
     $('undo').hidden = $('copy').hidden = $('close').hidden = true;
     $('speed').textContent = '1x';
     setStatus('Scanning page…');
-    port.postMessage({ type: 'start', page: wirePage(page), style: settings.style, preset: settings.preset, allowText: settings.allowText, demo: settings.demo });
+    port.postMessage({ type: 'start', page: wirePage(page), style: settings.style, preset: settings.preset, savedStyle: settings.savedStyle, allowText: settings.allowText, demo: settings.demo });
     requestAnimationFrame(frame);
   }
 
@@ -323,6 +432,7 @@ function createStage() {
 
   function undo() {
     if (!touched) return;
+    touched.observer?.disconnect();
     for (const [el, style] of touched.styles) { if (style == null) el.removeAttribute('style'); else el.setAttribute('style', style); }
     for (const [el, html] of touched.texts) el.innerHTML = html;
     port?.postMessage({ type: 'undo' });
@@ -373,9 +483,10 @@ function createStage() {
   return { run, stop, undo, get running() { return !!R; }, exportCss };
 }
 
-if (!window.__codezSwarm) {
-  window.__codezSwarm = createStage();
-  chrome.runtime.onMessage.addListener(message => {
-    if (message.type === 'run') window.__codezSwarm.run(message.settings);
+if (!window.__redraft) {
+  window.__redraft = createStage();
+  chrome.runtime.onMessage.addListener((message, _sender, reply) => {
+    if (message.type === 'run') window.__redraft.run(message.settings);
+    if (message.type === 'capture') reply({ theme: capturePage(), source: location.hostname });
   });
 }

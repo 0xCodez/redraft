@@ -2,26 +2,117 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Codez Swarm</title>
+<title>Redraft</title>
 <link rel="stylesheet" href="shared.css">
 <style>
-  body { width: 320px; padding: 14px; display: grid; gap: 11px; }
-  #presets { display: flex; flex-wrap: wrap; gap: 6px; }
-  #presets button { padding: 6px 9px; font-weight: 500; font-size: 12px; }
-  #presets button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-  .row { display: flex; gap: 8px; } .row button { flex: 1; }
+  body { width: 348px; }
+  header { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+  header img { width: 30px; height: 30px; display: block; }
+  header div { flex: 1; min-width: 0; }
+  #settings { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--dim); }
+  #settings:hover { background: var(--raise); color: var(--fg); }
+  main { display: grid; gap: 13px; padding: 14px; }
+  [hidden] { display: none !important; }
+  #presets, #mine { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  #mine { max-height: 190px; overflow-y: auto; padding: 2px; margin: -2px; }
+  .preset { padding: 0; border: 0; background: none; text-align: left; }
+  .swatch {
+    position: relative; display: block; height: 62px; padding: 7px 8px; overflow: hidden; border-radius: 9px;
+    box-shadow: 0 0 0 1px var(--line); transition: box-shadow .12s, transform .12s;
+  }
+  .preset:hover .swatch { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--line-strong); }
+  .preset[aria-pressed="true"] .swatch { box-shadow: 0 0 0 2px var(--signal); }
+  .swatch b { display: block; font-size: 21px; line-height: 1.05; }
+  .swatch.surprise { background: var(--blue); color: #fff; display: grid; place-items: center; }
+  .swatch.surprise b, .swatch.add b, .swatch.words b { font-size: 26px; }
+  .swatch.add { display: grid; place-items: center; background: none; color: var(--signal); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .preset:hover .swatch.add { background: rgba(255, 90, 31, .1); box-shadow: inset 0 0 0 1px var(--signal); }
+  .swatch.words { display: grid; place-items: center; background: var(--raise); color: var(--soft); }
+  .way { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--sheet); }
+  .way h2 { margin: 0; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+  .way .note { margin-top: -5px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--soft); font-size: 12.5px; }
+  .back:hover { color: var(--fg); }
+  #captured { display: grid; gap: 9px; }
+  .capture-row { display: grid; grid-template-columns: 78px 1fr; gap: 10px; align-items: center; }
+  .dots { display: flex; gap: 4px; margin-bottom: 5px; }
+  .dots i { width: 18px; height: 18px; border-radius: 5px; box-shadow: 0 0 0 1px var(--line-strong); }
+  #captured-fonts { font-size: 12px; color: var(--soft); }
+  .wide { width: 100%; }
+  .swatch i { position: absolute; left: 8px; bottom: 8px; width: 38%; height: 7px; }
+  .swatch u { position: absolute; right: 8px; bottom: 8px; width: 26%; height: 7px; opacity: .3; text-decoration: none; }
+  .preset > span:last-child { display: block; margin-top: 5px; font-size: 11.5px; font-weight: 550; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preset[aria-pressed="true"] > span:last-child { color: var(--fg); }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--soft); font-size: 12px; cursor: pointer; }
+  .check input { width: 15px; height: 15px; margin: 0; accent-color: var(--blue-hi); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #demo { padding: 0; border: 0; background: none; color: var(--soft); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; }
+  #demo:hover { color: var(--fg); }
+  footer { padding: 10px 14px 13px; border-top: 1px solid var(--line); }
 </style>
 </head>
 <body>
-  <h1>Codez Swarm</h1>
-  <div id="presets" role="group" aria-label="Style presets"></div>
-  <label>Style direction<textarea id="style" placeholder="Describe the redesign, or pick a preset"></textarea></label>
-  <label><input type="checkbox" id="copy">Let agents rewrite headlines and copy</label>
-  <div class="row">
-    <button id="go" class="main" type="button">Redesign page</button>
-    <button id="demo" type="button" title="Plays the swarm with a preset. No API key, no cost.">Demo</button>
-  </div>
-  <p class="note" id="msg">Redesign sends this page's visible text and styles to the Claude API. Form values are never read; emails and long numbers are masked. <a href="options.html" target="_blank">Options</a></p>
+  <header>
+    <img src="icons/icon48.png" alt="">
+    <div>
+      <h1>Redraft</h1>
+      <span class="status" id="status" data-state="">Checking Claude…</span>
+    </div>
+    <button id="settings" type="button" aria-label="Open settings" title="Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+    </button>
+  </header>
+  <main id="home">
+    <div>
+      <span class="field-label">Your styles</span>
+      <div id="mine" role="group" aria-label="Your styles"></div>
+    </div>
+    <div>
+      <span class="field-label">Presets</span>
+      <div id="presets" role="group" aria-label="Style presets"></div>
+    </div>
+    <label><span class="field-label">Notes for the agents</span><textarea id="style" rows="2"></textarea></label>
+    <label class="check"><input type="checkbox" id="copy">Let agents rewrite headlines and copy</label>
+    <button id="go" class="primary" type="button">
+      <svg width="15" height="15" viewBox="30 16 94 98" aria-hidden="true"><path d="M38 28 L66 106 Q68 112 71 106 L84 74 L115 60 Q121 57 115 54 L44 22 Q35 19 38 28 Z" fill="#fff"/></svg>
+      Redraft this page
+    </button>
+    <div class="row">
+      <button id="demo" type="button">Try a free demo run</button>
+    </div>
+  </main>
+
+  <main id="create" hidden>
+    <button class="back" id="back" type="button">← Back</button>
+    <section class="way">
+      <h2>Copy this page's style</h2>
+      <p class="note">Like how this site looks? Save its colors, fonts and shapes, then use them anywhere.</p>
+      <button id="copy-page" class="quiet wide" type="button">Copy style from this page</button>
+      <div id="captured" hidden>
+        <div class="capture-row">
+          <div id="captured-swatch"></div>
+          <div><div class="dots" id="captured-colors"></div><div id="captured-fonts"></div></div>
+        </div>
+        <label><span class="field-label">Name</span><input id="captured-name" type="text" maxlength="40"></label>
+        <button id="save-captured" class="primary" type="button">Save style</button>
+      </div>
+    </section>
+    <section class="way">
+      <h2>Describe it</h2>
+      <textarea id="words" rows="2" placeholder="Swiss poster, lots of air, one red accent"></textarea>
+      <input id="words-name" type="text" maxlength="40" placeholder="Name (optional)">
+      <button id="save-words" class="quiet wide" type="button">Save style</button>
+    </section>
+    <section class="way">
+      <h2>Build it by hand</h2>
+      <button id="by-hand" class="quiet wide" type="button">Open the style editor</button>
+    </section>
+    <p class="note" id="create-msg" role="status"></p>
+  </main>
+
+  <footer>
+    <p class="note" id="msg">Sends this page's visible text and styles to Claude. Form values are never read.</p>
+  </footer>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

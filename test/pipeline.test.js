@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runRedesign } from '../src/pipeline.js';
+import { anthropicProvider, runRedesign as run } from '../src/pipeline.js';
+
+const runRedesign = ({ client, model, ...rest }) => run({ provider: anthropicProvider(client, model), ...rest });
 
 // A stand-in for client.beta.messages.stream with the same event shape.
 function fakeClient(script) {
@@ -74,4 +76,17 @@ test('one failed section does not stop the others', async () => {
 test('a director with no brief fails loudly', async () => {
   const client = fakeClient(() => 'nothing useful');
   await assert.rejects(runRedesign({ client, model: 'claude-opus-5-5', effort: 'low', concurrency: 1, page, style: 's', allowText: false, emit() {}, signal: new AbortController().signal }), /no design system/);
+});
+
+test('a saved style skips the director and is applied exactly', async () => {
+  const client = fakeClient(() => lines({ op: 'style', id: 1, css: { 'font-size': '18px' } }));
+  const out = [];
+  const savedStyle = { name: 'Mine', prompt: 'Keep it airy', theme: { bg: '#fff', surface: '#eee', text: '#000', muted: '#555', accent: '#f00', accentText: '#fff', border: '#ddd', headingFont: 'Fraunces', bodyFont: 'Inter', radius: '4px', shadow: 'none' } };
+  await runRedesign({ client, model: 'claude-opus-5-5', effort: 'low', concurrency: 2, page, style: 's', savedStyle, allowText: false, emit: m => out.push(m), signal: new AbortController().signal });
+  assert.equal(client.calls.length, 3, 'only the section agents ran');
+  assert.ok(client.calls.every(p => !p.system[0].text.includes('art director')));
+  assert.ok(client.calls[0].system[0].text.includes('Keep it airy'));
+  const themeOp = out.find(m => m.op?.op === 'theme');
+  assert.equal(themeOp.op.theme.accent, '#f00');
+  assert.deepEqual(out.filter(m => m.op?.op === 'font').map(m => m.op.family), ['Fraunces', 'Inter']);
 });
