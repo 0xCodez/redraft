@@ -1,0 +1,8 @@
+body { margin: 0; font: 16px/1.5 Georgia, serif; background: #fff; color: #222; }
+.top { display: flex; justify-content: space-between; padding: 14px 24px; background: #eee; }
+.top a { margin-left: 16px; }
+section { padding: 48px 24px; }
+.hero { background: #ddd; }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+article { padding: 16px; border: 1px solid #bbb; }
+footer { padding: 24px; background: #eee; }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Codez Swarm options</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { max-width: 460px; margin: 0 auto; padding: 28px 16px; display: grid; gap: 14px; }
+</style>
+</head>
+<body>
+  <h1>Codez Swarm options</h1>
+  <label>Anthropic API key
+    <input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…">
+  </label>
+  <p class="note">Stored only in this browser profile and used only for requests to api.anthropic.com. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>. Usage is billed to your account.</p>
+  <label>Model
+    <select id="model">
+      <option value="claude-opus-5-5">Claude Opus 5.5 (best results)</option>
+      <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
+      <option value="claude-haiku-5-5">Claude Haiku 5.5 (fastest, cheapest)</option>
+    </select>
+  </label>
+  <label>Section agent effort
+    <select id="effort">
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+  </label>
+  <label>Claude agents working at once
+    <input id="concurrency" type="number" min="1" max="8">
+  </label>
+  <label>Cursors on screen
+    <input id="agents" type="number" min="20" max="400">
+  </label>
+  <button id="save" class="main" type="button">Save</button>
+  <p class="note" id="saved" role="status"></p>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

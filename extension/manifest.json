@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Codez Swarm",
+  "version": "0.1.0",
+  "description": "Redesign any site live: Claude agents restyle the page while a swarm of cursors rebuilds it in front of you.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://api.anthropic.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Codez Swarm" },
+  "options_page": "options.html"
+}

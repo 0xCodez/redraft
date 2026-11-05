@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Codez Swarm</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { width: 320px; padding: 14px; display: grid; gap: 11px; }
+  #presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  #presets button { padding: 6px 9px; font-weight: 500; font-size: 12px; }
+  #presets button.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+  .row { display: flex; gap: 8px; } .row button { flex: 1; }
+</style>
+</head>
+<body>
+  <h1>Codez Swarm</h1>
+  <div id="presets" role="group" aria-label="Style presets"></div>
+  <label>Style direction<textarea id="style" placeholder="Describe the redesign, or pick a preset"></textarea></label>
+  <label><input type="checkbox" id="copy">Let agents rewrite headlines and copy</label>
+  <div class="row">
+    <button id="go" class="main" type="button">Redesign page</button>
+    <button id="demo" type="button" title="Plays the swarm with a preset. No API key, no cost.">Demo</button>
+  </div>
+  <p class="note" id="msg">Redesign sends this page's visible text and styles to the Claude API. Form values are never read; emails and long numbers are masked. <a href="options.html" target="_blank">Options</a></p>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
