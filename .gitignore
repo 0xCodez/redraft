@@ -8,3 +8,4 @@ bridge/host.sh
 test/shots/
 .vercel
 .env*
+.dashboard-password

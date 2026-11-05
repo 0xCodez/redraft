@@ -439,6 +439,22 @@
 
   addEventListener('resize', () => { if (R) swarm.resize(); });
 
+  /* ---------- cookieless analytics, read on the private /dashboard ---------- */
+
+  const counted = navigator.doNotTrack !== '1' && !navigator.webdriver && !/^(localhost|127\.)/.test(location.hostname);
+  const send = data => {
+    if (!counted) return;
+    const body = new Blob([JSON.stringify(data)], { type: 'text/plain' });
+    if (!navigator.sendBeacon?.('/api/track', body)) fetch('/api/track', { method: 'POST', body, keepalive: true }).catch(() => {});
+  };
+  const click = k => send({ t: 'click', k });
+  send({ t: 'pv', p: location.pathname, r: document.referrer, u: new URLSearchParams(location.search).get('utm_source') });
+  $('chips').addEventListener('click', e => { if (e.target.closest('button')) click('restyle-page'); });
+  $('copy').addEventListener('click', () => click('copy-command'));
+  $('hud-replay').addEventListener('click', () => click('replay'));
+  document.querySelectorAll('a[href*="github.com/0xCodez/redraft"]').forEach(a => a.addEventListener('click', () => click('github')));
+  document.querySelectorAll('.faq details').forEach((d, n) => d.addEventListener('toggle', () => { if (d.open) click(`faq-${n + 1}`); }));
+
   if (root.classList.contains('running')) {
     Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1200))]).then(() => run('redraft', 'all', 1.5));
   } else if (root.classList.contains('skipped')) {
