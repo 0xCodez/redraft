@@ -6,3 +6,5 @@ dist-e2e/
 bridge/host.sh
 .vercel/
 test/shots/
+.vercel
+.env*
